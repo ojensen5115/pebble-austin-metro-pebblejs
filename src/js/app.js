@@ -20,6 +20,7 @@ var scheduleCard = false;
 var updateTimer = false;
 var updateTime = 1000 * 45; // update every 45 seconds
 var responseCache = {};
+var stopChanged = false;  // since last update
 
 var stopIdx = localStorage.stopIdx ? localStorage.stopIdx : 0;
 var subscribed = settings.option('subscribed');
@@ -31,13 +32,7 @@ var stopTitles = JSON.parse(localStorage.stopTitles);
 // if we're subscribed to at least one schedule, initialize and show
 if (subscribed.length) {
   console.log('Initializing schedule card');
-  var title = stopTitles[subscribed[stopIdx]];
-  if (!title) {
-    title = 'Loading...';
-  }
   scheduleCard = new UI.Card({
-    title: title,
-    body: '\nloading...',
     style: 'small'
   });
   scheduleCard.on('click', 'up', function(e) {
@@ -45,6 +40,7 @@ if (subscribed.length) {
     if (stopIdx < 0) {
       stopIdx = subscribed.length - 1;
     }
+    stopChanged = true;
     updateScheduleCard();
   });
   scheduleCard.on('click', 'down', function(e) {
@@ -52,15 +48,22 @@ if (subscribed.length) {
     if (stopIdx >= subscribed.length) {
       stopIdx = 0;
     }
+    stopChanged = true;
     updateScheduleCard();
   });
   scheduleCard.show();
+  stopChanged = true;
   updateScheduleCard();
 }
 
 
 function updateScheduleCard() {
   stopId = subscribed[stopIdx];
+  var title = stopTitles[stopId];
+  if (!title) {
+    title = 'Loading...';
+  }
+  scheduleCard.title(title);
   updateScheduleContent();
 }
 
@@ -87,6 +90,9 @@ function updateScheduleContent() {
   }
   
   console.log('actually updating schedule');
+  if (stopChanged) {
+    scheduleCard.body('\nloading...');
+  }
   ajax(
     {url: getRequestUrl(stopId)},
     function(data) {
@@ -108,7 +114,7 @@ function updateScheduleContent() {
       var text = lines.join('\n');
       responseCache[stopId] = {data: text, updated: Date.now()};
       scheduleCard.body(text);
-      
+      stopChanged = false;
       planUpdate(updateTime);
     },
     function(error) {
