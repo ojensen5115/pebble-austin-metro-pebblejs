@@ -20,7 +20,6 @@ var scheduleCard = false;
 var updateTimer = false;
 var updateTime = 1000 * 45; // update every 45 seconds
 var responseCache = {};
-var scheduleCards = {};
 
 var stopIdx = localStorage.stopIdx ? localStorage.stopIdx : 0;
 var subscribed = settings.option('subscribed');
@@ -29,53 +28,47 @@ if (stopIdx > subscribed.length - 1) {
 }
 var stopTitles = JSON.parse(localStorage.stopTitles);
 
+// if we're subscribed to at least one schedule, initialize and show
 if (subscribed.length) {
-  showNewScheduleCard();
-}
-
-function getScheduleCard(stopId) {
-  if (scheduleCards[stopId]) {
-    return scheduleCards[stopId];
-  }
+  console.log('Initializing schedule card');
   var title = stopTitles[subscribed[stopIdx]];
   if (!title) {
     title = 'Loading...';
   }
-  var schedule = new UI.Card({
+  scheduleCard = new UI.Card({
     title: title,
-    body: 'loading...',
+    body: '\nloading...',
     style: 'small'
   });
-  schedule.on('click', 'up', function(e) {
+  scheduleCard.on('click', 'up', function(e) {
     stopIdx -= 1;
     if (stopIdx < 0) {
       stopIdx = subscribed.length - 1;
     }
-    showNewScheduleCard();
+    updateScheduleCard();
   });
-  schedule.on('click', 'down', function(e) {
+  scheduleCard.on('click', 'down', function(e) {
     stopIdx += 1;
     if (stopIdx >= subscribed.length) {
       stopIdx = 0;
     }
-    showNewScheduleCard();
+    updateScheduleCard();
   });
-  scheduleCards[stopId] = schedule;
-  return schedule;
+  scheduleCard.show();
+  updateScheduleCard();
 }
 
-function showNewScheduleCard() {
+
+function updateScheduleCard() {
   stopId = subscribed[stopIdx];
-  scheduleCard = getScheduleCard(subscribed[stopIdx]);
-  scheduleCard.show();
-  updateSchedule();
+  updateScheduleContent();
 }
 
 function getRequestUrl(stopId) {
   return 'http://capmetro.org/planner/s_nextbus2.asp?stopid=' + stopId + '&opt=2&_=' + Date.now();
 }
 
-function updateSchedule() {
+function updateScheduleContent() {
   console.log('called updateSchedule');
   if (!stopId || !scheduleCard) {
     console.log(stopId, scheduleCard);
@@ -126,5 +119,5 @@ function updateSchedule() {
 function planUpdate(time) {
   clearTimeout(updateTimer);
   console.log('Scheduling next update in ' + time);
-  updateTimer = setTimeout(updateSchedule, time);
+  updateTimer = setTimeout(updateScheduleContent, time);
 }
