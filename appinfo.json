@@ -39,7 +39,9 @@
     "sdkVersion": "3",
     "shortName": "Austin Metro (pebble.js)",
     "targetPlatforms": [
-        "basalt"
+        "aplite",
+        "basalt",
+        "chalk"
     ],
     "uuid": "5bd05626-6b0e-4787-ab79-79b47ead8538",
     "versionCode": 1,
