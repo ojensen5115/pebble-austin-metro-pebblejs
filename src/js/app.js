@@ -17,39 +17,32 @@ if (!localStorage.stopTitles) {
 var stopId = false;
 var scheduleCard = false;
 var updateTimer = false;
-var updateTime = 1000 * 45; // update every 45 seconds
+var updateTime = 1000 * 30; // update every 30 seconds
 var responseCache = {};
 var stopChanged = false;  // since last update
 var newStopDigits = [];
 var delStopIdx; // temporary variable used for stop deletion
 
-var stopIdx = localStorage.stopIdx ? localStorage.stopIdx : 0;
 var subscribed = settings.option('subscribed');
 if (!subscribed) subscribed = [];
-if (stopIdx > subscribed.length - 1) {
-  stopIdx = 0;
-}
+
+var stopIdx = localStorage.stopIdx ? parseInt(localStorage.stopIdx) : 0;
 var stopTitles = JSON.parse(localStorage.stopTitles);
 
+
+
+
+
+
 // initialize schedule card
-scheduleCard = new UI.Card({
+var scheduleCard = new UI.Card({
   style: 'small'
 });
 scheduleCard.on('click', 'up', function(e) {
-  stopIdx -= 1;
-  if (stopIdx < 0) {
-    stopIdx = subscribed.length - 1;
-  }
-  stopChanged = true;
-  updateScheduleCard();
+  updateStopIdx(-1);
 });
 scheduleCard.on('click', 'down', function(e) {
-  stopIdx += 1;
-  if (stopIdx >= subscribed.length) {
-    stopIdx = 0;
-  }
-  stopChanged = true;
-  updateScheduleCard();
+  updateStopIdx(1);
 });
 scheduleCard.on('click', 'select', function(e) {
   showMenu();
@@ -67,10 +60,7 @@ stopMenu.on('select', function(e) {
   if (e.itemIndex === 0) {
     addStop();
   } else {
-    stopIdx = e.itemIndex - 1;
-    stopChanged = true;
-    updateScheduleCard();
-    scheduleCard.show();
+    setStopIdx(e.itemIndex - 1);
     stopMenu.hide();
   }
 });
@@ -97,8 +87,7 @@ confirmDelete.on('select', function(e) {
     subscribed.splice(delStopIdx, 1);
     settings.option('subscribed', subscribed);
     if (stopIdx >= subscribed.length) {
-      stopIdx = 0;
-      updateScheduleCard();
+      updateStopIdx();
       showMenu();
     }
     if (subscribed.length === 0) {
@@ -109,14 +98,34 @@ confirmDelete.on('select', function(e) {
 });
 
 
-// if we're subscribed to at least one schedule, initialize and show
-if (subscribed.length) {
-  scheduleCard.show();
-  stopChanged = true;
-  updateScheduleCard();
-} else {
-  addStop();
+
+
+
+
+function updateStopIdx(modifier) {
+  if (!modifier) modifier = 0;
+  setStopIdx(stopIdx + modifier);
 }
+
+function setStopIdx(newIdx, forceUpdate) {
+  if (newIdx < 0) {
+    newIdx = subscribed.length - 1;
+  } else if (newIdx >= subscribed.length) {
+    newIdx = 0;
+  }
+  if (stopIdx != newIdx || forceUpdate) {
+    stopChanged = true;
+    stopIdx = newIdx;
+    localStorage.stopIdx = newIdx;
+    updateScheduleCard();
+  }
+  scheduleCard.show();
+}
+
+
+
+
+
 
 function addStop() {
   newStopDigits = [0];
@@ -151,9 +160,7 @@ function addStop() {
       var newNumber = parseInt(newStopDigits.join(''), 10);
       subscribed.push(newNumber);
       settings.option('subscribed', subscribed);
-      stopChanged = true;
-      stopIdx = subscribed.length - 1;
-      updateScheduleCard();
+      setStopIdx(subscribed.length - 1);
       scheduleCard.show();
       this.hide();
       stopMenu.hide();
@@ -170,8 +177,6 @@ function addStop() {
         str += '_ ';
       }
     }
-    console.log(newStopDigits);
-    console.log(str);
     this.subtitle(str);
   };
   addStopCard.updateDigitsSoFar();
@@ -221,11 +226,12 @@ function updateScheduleCard() {
 }
 
 function getRequestUrl(stopId) {
-  return 'http://capmetro.org/planner/s_nextbus2.asp?stopid=' + stopId + '&opt=2&_=' + Date.now();
+  var url = 'http://capmetro.org/planner/s_nextbus2.asp?stopid=' + stopId + '&opt=2&_=' + Date.now();
+  //console.log(url);
+  return url;
 }
 
 function updateScheduleContent() {
-  console.log('called updateSchedule');
   if (stopId === false || !scheduleCard) {
     console.log(stopId, scheduleCard);
     console.log('not updating');
@@ -242,14 +248,13 @@ function updateScheduleContent() {
     }
   }
   
-  console.log('actually updating schedule');
+  console.log('updating schedule...');
   if (stopChanged) {
     scheduleCard.body('\nloading...');
   }
   ajax(
     {url: getRequestUrl(stopId)},
     function(data) {
-      console.log('ajax success');
       console.log(data);
       var response = JSON.parse(data);
       
@@ -261,7 +266,7 @@ function updateScheduleContent() {
           scheduleCard.title(stopTitles[stopId]);
         }
         var lines = [''];
-        if (response.list.length == 0) {
+        if (response.list.length === 0) {
           lines.push('(no results found)');
         }
         for (var i = 0; i < response.list.length; i++) {
@@ -277,18 +282,32 @@ function updateScheduleContent() {
         planUpdate(updateTime);
       } else {
         if (!stopTitles[stopId]) {
-          scheduleCard.title(stopId);
+          scheduleCard.title(stopId.toString());
         }
         scheduleCard.body('\n' + response.status);
       }
     },
     function(error) {
       scheduleCard.body('Error reaching API');
+      console.log(error);
     });
 }
 
 function planUpdate(time) {
   clearTimeout(updateTimer);
-  console.log('Scheduling next update in ' + time);
+  //console.log('Scheduling next update in ' + time);
   updateTimer = setTimeout(updateScheduleContent, time);
+}
+
+
+
+
+
+
+if (subscribed.length) {
+  // if we're subscribed to at least one schedule, initialize and show
+  setStopIdx(stopIdx, /*forceUpdate*/ true);
+} else {
+  // otherwise, show the interface for adding a stop
+  addStop();
 }
