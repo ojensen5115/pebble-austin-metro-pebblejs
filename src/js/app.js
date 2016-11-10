@@ -1,7 +1,5 @@
 /**
- * Welcome to Pebble.js!
- *
- * This is where you write your app.
+ * Very sparsely tested, your mileage may vary.
  */
 
 var UI = require('ui');
