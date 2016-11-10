@@ -263,6 +263,9 @@ function updateScheduleContent() {
           scheduleCard.title(stopTitles[stopId]);
         }
         var lines = [''];
+        if (response.list.length == 0) {
+          lines.push('(no results found)');
+        }
         for (var i = 0; i < response.list.length; i++) {
           var estTime = response.list[i].est;
           //var schedTime = response.list[i].sched;
