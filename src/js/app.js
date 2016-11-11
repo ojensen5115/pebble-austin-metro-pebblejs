@@ -6,13 +6,17 @@ var UI = require('ui');
 var settings = require('settings');
 var ajax = require('ajax');
 
-// subscribed consists of a list of stopIDs
-// settings.option('subscribed', [4983, 5528]);
-// settings.option('subscribed', null);
-// stop titles in localStorage
-if (!localStorage.stopTitles) {
-  localStorage.stopTitles = JSON.stringify({});
-}
+/*
+settings.option('subscribed', null);
+localStorage.removeItem('stopIdx');
+localStorage.removeItem('stopTitles');
+*/
+
+/*
+settings.option('subscribed', [4983, 5528]);
+localStorage.stopIdx = 0;
+localStorage.stopTitles = '{}';
+*/
 
 var stopId = false;
 var scheduleCard = false;
@@ -22,12 +26,14 @@ var responseCache = {};
 var stopChanged = false;  // since last update
 var newStopDigits = [];
 var delStopIdx; // temporary variable used for stop deletion
+var initialFailureBackoff = 1000;  // start at 1 second
+var failureBackoff = initialFailureBackoff;
 
 var subscribed = settings.option('subscribed');
 if (!subscribed) subscribed = [];
 
 var stopIdx = localStorage.stopIdx ? parseInt(localStorage.stopIdx) : 0;
-var stopTitles = JSON.parse(localStorage.stopTitles);
+var stopTitles = localStorage.stopTitles ? JSON.parse(localStorage.stopTitles) : {};
 
 
 
@@ -158,10 +164,11 @@ function addStop() {
       }
     } else {
       var newNumber = parseInt(newStopDigits.join(''), 10);
+      console.log('Subscribing to stop: ' + newNumber);
       subscribed.push(newNumber);
+      console.log('Now subscribed to: ' + subscribed);
       settings.option('subscribed', subscribed);
-      setStopIdx(subscribed.length - 1);
-      scheduleCard.show();
+      setStopIdx(subscribed.length - 1, true);
       this.hide();
       stopMenu.hide();
     }
@@ -255,6 +262,7 @@ function updateScheduleContent() {
   ajax(
     {url: getRequestUrl(stopId)},
     function(data) {
+      failureBackoff = initialFailureBackoff;
       console.log(data);
       var response = JSON.parse(data);
       
@@ -289,7 +297,12 @@ function updateScheduleContent() {
     },
     function(error) {
       scheduleCard.body('Error reaching API');
-      console.log(error);
+      console.log('Communication failure! Trying again in: ' + failureBackoff);
+      planUpdate(failureBackoff);
+      failureBackoff *= 2;
+      if (failureBackoff > updateTime) {
+        failureBackoff = updateTime;
+      }
     });
 }
 
