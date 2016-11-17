@@ -28,6 +28,7 @@ var newStopDigits = [];
 var delStopIdx; // temporary variable used for stop deletion
 var initialFailureBackoff = 1000;  // start at 1 second
 var failureBackoff = initialFailureBackoff;
+var failureCountdown;
 
 var subscribed = settings.option('subscribed');
 if (!subscribed) subscribed = [];
@@ -296,9 +297,7 @@ function updateScheduleContent() {
       }
     },
     function(error) {
-      scheduleCard.body('Error reaching API');
-      console.log('Communication failure! Trying again in: ' + failureBackoff);
-      planUpdate(failureBackoff);
+      displayApiFailureCountdown(failureBackoff);
       failureBackoff *= 2;
       if (failureBackoff > updateTime) {
         failureBackoff = updateTime;
@@ -310,6 +309,20 @@ function planUpdate(time) {
   clearTimeout(updateTimer);
   //console.log('Scheduling next update in ' + time);
   updateTimer = setTimeout(updateScheduleContent, time);
+}
+function displayApiFailureCountdown(seconds) {
+  if (seconds) {
+    failureCountdown = seconds;
+  } else {
+    failureCountdown -= 1000;
+  }
+  if (failureCountdown) {
+    scheduleCard.body('Error reaching API\n\nRetrying in ' + (failureCountdown / 1000) + ' s');
+    setTimeout(displayApiFailureCountdown, 1000);
+  } else {
+    scheduleCard.body('Retrying...');
+    setTimeout(updateScheduleContent, 333);
+  }
 }
 
 
